@@ -1,0 +1,41 @@
+pipeline {
+    agent any
+    environment {
+        tag = "nanoleaf-touch"
+        registry = "http://registry.cb7.com"
+        image = ""
+    }
+    stages {
+
+        stage('Clone') {
+            steps {
+                checkout scm
+            }
+        }
+
+        stage('Build image') {
+            steps {
+                script {
+                    image = docker.build(tag + ":${env.BUILD_ID}", "-f src/Dockerfile .")
+                }
+            }
+        }
+
+        stage('Push image') {
+            steps {
+                script {
+                    docker.withRegistry(registry) {
+                        image.push("${env.BRANCH_NAME}")
+                    }
+
+                    def CURRENT_TAG = sh(returnStdout: true, script: "git tag -l --points-at HEAD | tail -1").trim()
+                    if (CURRENT_TAG != "") {
+                        docker.withRegistry(registry) {
+                            image.push("${CURRENT_TAG}")
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
